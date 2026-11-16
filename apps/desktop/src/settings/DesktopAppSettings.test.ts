@@ -4,6 +4,7 @@ import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as Tracer from "effect/Tracer";
@@ -97,6 +98,26 @@ function writeSettingsPatch(patch: typeof DesktopSettingsPatch.Type) {
 }
 
 describe("DesktopSettings", () => {
+  it.effect(
+    "restores widget visibility, layout and negative-monitor coordinates and user size",
+    () =>
+      withSettings(
+        Effect.gen(function* () {
+          const settings = yield* DesktopAppSettings.DesktopAppSettings;
+          const usageWidget = {
+            visible: true,
+            layout: "horizontal" as const,
+            position: { x: -1280, y: 40 },
+            size: { width: 640, height: 420 },
+          };
+          yield* settings.load;
+          yield* settings.setUsageWidget(usageWidget);
+          assert.deepEqual((yield* settings.load).usageWidget, usageWidget);
+          yield* settings.setUsageWidget({ ...usageWidget, visible: false });
+          assert.deepEqual((yield* settings.load).usageWidget, { ...usageWidget, visible: false });
+        }),
+      ),
+  );
   it.effect("records one bounds operation span with its input attributes", () =>
     Effect.gen(function* () {
       const spans: Array<Tracer.Span> = [];
@@ -226,6 +247,7 @@ describe("DesktopSettings", () => {
           linuxPasswordStore: "auto",
           localEnvironmentEnabled: true,
           mainWindowBounds: { x: 120, y: 80, width: 1280, height: 900 },
+          usageWidget: DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS.usageWidget,
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
           tailscaleServeEnabled: true,
@@ -320,11 +342,12 @@ describe("DesktopSettings", () => {
       Effect.gen(function* () {
         const environment = yield* DesktopEnvironment.DesktopEnvironment;
         const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
         const settings = yield* DesktopAppSettings.DesktopAppSettings;
         const dotfiles = yield* fileSystem.makeTempDirectoryScoped({
           prefix: "t3-desktop-settings-dotfiles-",
         });
-        const linkedSettingsPath = `${dotfiles}/desktop-settings.json`;
+        const linkedSettingsPath = path.join(dotfiles, "desktop-settings.json");
         yield* fileSystem.writeFileString(linkedSettingsPath, "{}\n");
         yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
         yield* fileSystem.symlink(linkedSettingsPath, environment.desktopSettingsPath);
@@ -384,6 +407,7 @@ describe("DesktopSettings", () => {
           tailscaleServeEnabled: false,
           tailscaleServePort: 443,
           updateChannel: "nightly",
+          usageWidget: DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS.usageWidget,
           updateChannelConfiguredByUser: false,
           wslBackendEnabled: false,
           wslOnly: false,
@@ -413,6 +437,7 @@ describe("DesktopSettings", () => {
           tailscaleServeEnabled: false,
           tailscaleServePort: 443,
           updateChannel: "latest",
+          usageWidget: DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS.usageWidget,
           updateChannelConfiguredByUser: true,
           wslBackendEnabled: false,
           wslOnly: false,

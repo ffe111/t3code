@@ -41,6 +41,7 @@ import * as DesktopClientSettings from "../settings/DesktopClientSettings.ts";
 import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts";
 import { makeQuitShortcutHandler } from "./QuitHold.ts";
+import * as DesktopUsageWidget from "./DesktopUsageWidget.ts";
 import { copyContextMenuImage } from "./ContextMenuImage.ts";
 
 const TITLEBAR_HEIGHT = 40;
@@ -381,6 +382,7 @@ function bindFirstRevealTrigger(
 export const make = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const desktopState = yield* DesktopState.DesktopState;
+  const usageWidget = yield* DesktopUsageWidget.DesktopUsageWidget;
   const assets = yield* DesktopAssets.DesktopAssets;
   const electronMenu = yield* ElectronMenu.ElectronMenu;
   const electronShell = yield* ElectronShell.ElectronShell;
@@ -400,6 +402,7 @@ export const make = Effect.gen(function* () {
   const context = yield* Effect.context<DesktopWindowRuntimeServices>();
   const runFork = Effect.runForkWith(context);
   const runPromise = Effect.runPromiseWith(context);
+  const runSync = Effect.runSyncWith(context);
   const mainWindowMutex = yield* Semaphore.make(1);
   const pendingMainReveals = new WeakMap<Electron.BrowserWindow, Effect.Effect<void>>();
   const revealMain = Effect.fn("desktop.window.revealMain")((window: Electron.BrowserWindow) =>
@@ -826,8 +829,12 @@ export const make = Effect.gen(function* () {
     window.on("move", scheduleBoundsPersist);
     window.on("maximize", scheduleBoundsPersist);
     window.on("unmaximize", scheduleBoundsPersist);
-    window.on("close", () => {
+    window.on("close", (event) => {
       runFork(flushBoundsPersist);
+      if (usageWidget.keepsMainAlive() && !runSync(Ref.get(desktopState.quitting))) {
+        event.preventDefault();
+        window.hide();
+      }
     });
 
     if (environment.platform === "darwin") {

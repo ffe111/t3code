@@ -49,6 +49,7 @@ import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import { SNAP_SHOT_EVENT_CHANNEL } from "../ipc/channels.ts";
 import * as DesktopServerExposure from "../backend/DesktopServerExposure.ts";
 import * as DesktopWindow from "./DesktopWindow.ts";
+import * as DesktopUsageWidget from "./DesktopUsageWidget.ts";
 import {
   PASSKEY_BRIDGE_ARGUMENT,
   PRIMARY_PASTE_DISABLED_ARGUMENT,
@@ -107,6 +108,7 @@ function makeFakeBrowserWindow() {
   const window = {
     close: vi.fn(),
     focus: vi.fn(),
+    hide: vi.fn(),
     getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1100, height: 780 })),
     getNormalBounds: vi.fn(() => ({ x: 0, y: 0, width: 1100, height: 780 })),
     isDestroyed: vi.fn(() => false),
@@ -138,6 +140,7 @@ function makeFakeBrowserWindow() {
     window: window as unknown as Electron.BrowserWindow,
     getBounds: window.getBounds,
     getNormalBounds: window.getNormalBounds,
+    hide: window.hide,
     isDestroyed: window.isDestroyed,
     isFullScreen: window.isFullScreen,
     isMaximized: window.isMaximized,
@@ -253,12 +256,18 @@ function layerTest(input: {
     readonly titleBarOverlay: boolean;
   }>;
   readonly primaryPasteEnabled?: boolean;
+  readonly usageWidgetEnabled?: boolean;
   readonly previewPasskeyBridgeEnabled?: boolean;
 }) {
   let desktopSettings = input.desktopSettings ?? DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS;
   const layerDesktopAppSettings = Layer.succeed(DesktopAppSettings.DesktopAppSettings, {
     get: Effect.sync(() => desktopSettings),
     load: Effect.sync(() => desktopSettings),
+    setUsageWidget: (usageWidget) =>
+      Effect.sync(() => {
+        desktopSettings = { ...desktopSettings, usageWidget };
+        return { settings: desktopSettings, changed: true };
+      }),
     setMainWindowBounds: (bounds, isMaximized) =>
       Effect.gen(function* () {
         if (input.beforeMainWindowBoundsUpdate) {
@@ -324,6 +333,14 @@ function layerTest(input: {
   } satisfies ElectronWindow.ElectronWindow["Service"]);
 
   return DesktopWindow.layer.pipe(
+    Layer.provide(
+      Layer.succeed(DesktopUsageWidget.DesktopUsageWidget, {
+        keepsMainAlive: () => input.usageWidgetEnabled ?? false,
+        show: Effect.void,
+        publish: () => Effect.void,
+        installActions: Effect.void,
+      }),
+    ),
     Layer.provide(
       Layer.mergeAll(
         layerDesktopAssets,
@@ -448,6 +465,7 @@ const makeSplashScenario = (createOutcomes: readonly (Electron.BrowserWindow | n
     } satisfies ElectronWindow.ElectronWindow["Service"];
 
     const layer = DesktopWindow.layer.pipe(
+      Layer.provide(DesktopUsageWidget.layerTest),
       Layer.provide(
         Layer.mergeAll(
           layerDesktopAssets,
@@ -1385,6 +1403,33 @@ describe("DesktopWindow", () => {
         assert.equal(history.goBack.mock.calls.length, 1);
         assert.equal(history.goForward.mock.calls.length, 1);
       }).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect("hides the main window for the widget but does not prevent Quit", () =>
+    Effect.gen(function* () {
+      const fake = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      yield* Effect.gen(function* () {
+        const windows = yield* DesktopWindow.DesktopWindow;
+        const state = yield* DesktopState.DesktopState;
+        yield* windows.handleBackendReady(new URL("http://127.0.0.1:3773"));
+        const close = fake.windowListeners.get("close")!;
+        const preventDefault = vi.fn();
+        close({ preventDefault });
+        assert.equal(preventDefault.mock.calls.length, 1);
+        assert.equal(fake.hide.mock.calls.length, 1);
+        assert.equal(yield* Ref.get(createCount), 1);
+        yield* Ref.set(state.quitting, true);
+        close({ preventDefault });
+        assert.equal(preventDefault.mock.calls.length, 1);
+        assert.equal(fake.hide.mock.calls.length, 1);
+      }).pipe(
+        Effect.provide(
+          layerTest({ window: fake.window, createCount, mainWindow, usageWidgetEnabled: true }),
+        ),
+      );
     }),
   );
 

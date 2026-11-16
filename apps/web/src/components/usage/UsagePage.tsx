@@ -510,6 +510,19 @@ export function UsagePage() {
 
         <ScrollArea className="min-h-0 flex-1">
           <WorkspacePageContainer width="wide">
+            {showingLimits && globalThis.window.desktopBridge?.usageWidget ? (
+              <div className="mb-5 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    void globalThis.window.desktopBridge?.usageWidget?.show().catch(console.error)
+                  }
+                >
+                  Show floating widget
+                </Button>
+              </div>
+            ) : null}
             {selectedEnvironments.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {environments.length === 0

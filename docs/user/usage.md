@@ -150,6 +150,29 @@ row to see when it resets and your pace. Turn on **Context window** to also show
 context use against the model's limit. A tick on the bar marks where the provider compacts
 automatically, when it reports that point.
 
+### Floating desktop widget
+
+On desktop, choose **View → Show Usage Widget**, or **Show floating widget** in **Usage → Limits**,
+to keep pooled limits above other windows. The widget includes all connected environments and
+providers that report limits, independently of the Usage page's filters. It uses T3 Code's existing
+provider updates, with no extra polling. Refresh Limits in the main window to request a new reading.
+
+Bars use each provider's chart color, with one segment per account. The line on a bar marks where
+even spending would be, so a bar that ends left of it is ahead of pace.
+
+Use the pin button in the header to choose whether the widget stays above other windows. Unpinned, it
+behaves like an ordinary window: other windows can cover it and it has its own taskbar entry.
+
+Drag the widget's header to move it, and drag its edges to resize it. Text and bars scale with the
+width. Double-click the header to fit the widget to its content again. Switch between vertical and
+horizontal layouts from the header; T3 Code remembers the layout, position, and size. Closing the main window while the widget is open hides
+the main window and keeps T3 Code running. Open T3 Code from the widget to return. Hiding the widget
+also brings the main window back, so the app is never left without a visible way to reopen it.
+**Quit** exits both. Disconnected readings are labeled as last known, not live.
+
+Window placement and staying above other apps depend on your window manager, particularly on
+Linux with Wayland. This is a desktop window, not an iOS or Android home-screen widget.
+
 OpenCode Go reports its session, weekly, and monthly allowance when OpenCode runs locally in
 the environment. T3 cannot report limits for external OpenCode servers because their credentials
 belong to the remote server. Limits need an OpenCode Go API key, or an OpenCode Console connected

@@ -1057,6 +1057,10 @@ export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
 export interface DesktopBridge {
+  usageWidget?: {
+    show: () => Promise<void>;
+    publish: (snapshot: import("./usageWidget.ts").UsageWidgetSnapshot) => Promise<void>;
+  };
   getAppBranding: () => DesktopAppBranding | null;
   getRelayTelemetryEnabled: () => boolean;
   getPathForFile: (file: File) => string;

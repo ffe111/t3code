@@ -280,6 +280,12 @@ export const make = Effect.gen(function* () {
       {
         label: "View",
         submenu: [
+          {
+            label: "Show Usage Widget",
+            click: () =>
+              runMenuEffect("show-usage-widget", dispatchMenuAction("show-usage-widget")),
+          },
+          { type: "separator" },
           /* Native reload/DevTools/zoom roles target focused guests; these commands must target the app. */
           { label: "Reload", accelerator: "CmdOrCtrl+R", click: mainContentsClick("reload") },
           {
