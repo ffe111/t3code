@@ -1,5 +1,5 @@
 import { PET_SCALES, type PetPreferences, type PetSnapshot } from "@t3tools/contracts";
-import { PET_CELL_HEIGHT, PET_CELL_WIDTH } from "@t3tools/shared/petPackage";
+import { PET_CELL_HEIGHT, PET_CELL_WIDTH, parsePetReference } from "@t3tools/shared/petPackage";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -10,6 +10,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
+import * as HttpClient from "effect/http/HttpClient";
 import * as Semaphore from "effect/Semaphore";
 import * as Electron from "electron";
 
@@ -25,6 +26,7 @@ import {
   type PetInfo,
   type PetLoadFailure,
 } from "../pet/petLibrary.ts";
+import { installPet } from "../pet/petInstaller.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import { PET_DOCUMENT } from "./petDocument.ts";
 import { usageWidgetBounds } from "./usageWidgetBounds.ts";
@@ -76,6 +78,7 @@ const make = Effect.gen(function* () {
   const state = yield* DesktopState.DesktopState;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const httpClient = yield* HttpClient.HttpClient;
   const mutex = yield* Semaphore.make(1);
   const petsDirectory = path.join(environment.baseDir, "pets");
   let preferences: PetPreferences | undefined;
@@ -293,6 +296,37 @@ const make = Effect.gen(function* () {
     yield* Effect.promise(() => Electron.shell.openPath(petsDirectory));
   });
 
+  const notify = (body: string) =>
+    Effect.sync(() => {
+      if (Electron.Notification.isSupported()) {
+        new Electron.Notification({ title: "T3 Pet", body }).show();
+      }
+    });
+  // A pet is copied from its page as an id or an install command, so the clipboard is the input.
+  const addFromClipboard = Effect.gen(function* () {
+    const id = parsePetReference(yield* Effect.promise(() => Electron.clipboard.readText()));
+    if (id === null) {
+      yield* notify(
+        "Copy a pet id or its install command first, then choose Add pet from clipboard.",
+      );
+      return;
+    }
+    const result = yield* installPet({ petsDirectory, id }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fileSystem),
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(HttpClient.HttpClient, httpClient),
+      Effect.map((installed) => ({ ok: true as const, installed })),
+      Effect.catch((message: string) => Effect.succeed({ ok: false as const, message })),
+    );
+    if (!result.ok) {
+      yield* notify(`Could not add ${id}. ${result.message}`);
+      return;
+    }
+    yield* refreshPets;
+    yield* choosePet(result.installed.id);
+    yield* notify(`Added ${result.installed.displayName}.`);
+  });
+
   const showMenu = Effect.sync(() => {
     if (!pet || pet.isDestroyed() || !preferences) return;
     const current = selectedPet();
@@ -313,6 +347,7 @@ const make = Effect.gen(function* () {
             enabled: false,
           })),
           { type: "separator" },
+          { label: "Add pet from clipboard", click: () => runFork(addFromClipboard) },
           { label: "Refresh pets", click: () => runFork(refreshPets) },
           { label: "Open pets folder", click: () => runFork(openPetsFolder) },
         ],

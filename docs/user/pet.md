@@ -30,7 +30,14 @@ to report, the most urgent state wins.
 Hover the pet to see the counts. A resting pet moves once, then holds still for several seconds. With
 your system's reduced motion setting on, the pet shows a still frame.
 
-## Install more pets
+## Add a pet from the web
+
+Shared pets are published with an id and an install command. Copy either one (or the address of
+the pet's page), right-click your pet, and choose **Pet > Add pet from clipboard**. T3 Code
+downloads the pet, checks it, installs it, and switches to it. You do not need Node or any other
+tool installed. A notification tells you if it could not be added.
+
+## Install a pet by hand
 
 A pet is a folder with two files, placed in the `pets` folder of your T3 home (right-click the pet,
 then **Pet > Open pets folder**). Choose **Refresh pets** afterward.
@@ -59,8 +66,8 @@ Each row is one animation, from the top: resting, running right, running left, w
 blocked, asking, working, ready. Only the first frames of each row are used. Rows 10 and 11, if
 present, are ignored.
 
-A pet that cannot be read is listed as skipped in the pet menu with the reason. Only install pets
-you have the right to use, since many are made by fans from existing characters.
+A pet that cannot be read is listed as skipped in the pet menu with the reason. Anyone can share a pet, and many are fan art of existing characters. Only install pets you have
+the right to use. T3 Code does not review them.
 
 ## Limits
 

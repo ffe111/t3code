@@ -1,4 +1,5 @@
 import * as NodeEvents from "node:events";
+import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vite-plus/test";
@@ -143,6 +144,7 @@ function withPet<A, E, R>(
                 Layer.provide(NodeServices.layer),
               ),
               DesktopState.layer,
+              NodeHttpClient.layerUndici,
               DesktopAppSettings.layerTest({
                 ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
                 pet: { visible, position: null, scale: 0.75, petId: null },

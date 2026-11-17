@@ -84,3 +84,29 @@ export function validatePetAtlas(dimensions: {
   }
   return null;
 }
+
+const PET_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Finds a pet id in pasted text: the id itself, an install command ending in the id, or the
+ * address of the pet's page. Anything else, including more than one candidate, is not an id.
+ */
+export function parsePetReference(input: string): string | null {
+  const text = input.trim();
+  if (text === "" || text.length > 300) return null;
+  if (/^https?:\/\//i.test(text)) {
+    try {
+      const segments = new URL(text).pathname.split("/").filter((segment) => segment !== "");
+      const last = segments.at(-1)?.toLowerCase();
+      return last !== undefined && PET_SLUG.test(last) ? last : null;
+    } catch {
+      return null;
+    }
+  }
+  const words = text.split(/\s+/);
+  const candidate = (words.length === 1 ? words[0] : words.at(-1))?.toLowerCase();
+  if (candidate === undefined || !PET_SLUG.test(candidate)) return null;
+  // A command must be "<tool> add <id>"; any other sentence is not an install request.
+  if (words.length === 1) return candidate;
+  return words.length >= 3 && words.at(-2)?.toLowerCase() === "add" ? candidate : null;
+}

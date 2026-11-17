@@ -4,6 +4,7 @@ import {
   PET_ANIMATIONS,
   PET_ANIMATION_ROWS,
   parsePetManifest,
+  parsePetReference,
   validatePetAtlas,
 } from "./petPackage.ts";
 
@@ -76,5 +77,33 @@ describe("animations", () => {
     expect(PET_ANIMATION_ROWS.map((row) => PET_ANIMATIONS[row].length)).toEqual([
       6, 8, 8, 4, 5, 8, 6, 6, 6,
     ]);
+  });
+});
+
+describe("parsePetReference", () => {
+  it.each([
+    ["wilson-original-v2", "wilson-original-v2"],
+    ["  Wilson-Original-V2\n", "wilson-original-v2"],
+    ["npx some-tool add wilson-original-v2", "wilson-original-v2"],
+    ["pnpm dlx some-tool add tiny-dino", "tiny-dino"],
+    ["https://example.com/pets/tiny-dino", "tiny-dino"],
+    ["https://example.com/pets/tiny-dino/?utm=1", "tiny-dino"],
+  ])("finds the id in %j", (input, expected) => {
+    expect(parsePetReference(input)).toBe(expected);
+  });
+
+  it.each([
+    "",
+    "   ",
+    "two words",
+    "npx tool remove tiny-dino",
+    "npx tool add",
+    "not an id!",
+    "https://example.com/",
+    "https://",
+    "Tiny_Dino",
+    "a".repeat(400),
+  ])("rejects %j", (input) => {
+    expect(parsePetReference(input)).toBeNull();
   });
 });
