@@ -6,7 +6,7 @@ available in the desktop app and is off by default.
 
 ## Start it
 
-Choose **View > Show Pet**. Drag it to move it. Right-click it for its menu: pick a pet, add or remove one, change its
+Choose **View > Show Pet**. Drag it to move it. Right-click it for its menu: open a waiting thread from **Threads**, pick a pet, browse or add pets, remove an installed pet, change its
 size, refresh the pet list, open the pets folder, or hide it. T3 Code remembers the pet, size, and
 position.
 
@@ -33,9 +33,8 @@ your system's reduced motion setting on, the pet shows a still frame.
 
 ## Add a pet from the web
 
-Shared pets are published with an id and an install command. Copy either one (or the address of
-the pet's page), right-click your pet, and choose **Pet > Add pet from clipboard**. T3 Code
-downloads the pet, checks it, installs it, and switches to it. You do not need Node or any other
+Shared pets and collections are published with an id and an install command. Choose **Pet > Browse pet gallery** to open the gallery in your browser, copy a pet or collection id, install command, or page address, then right-click your pet and choose **Pet > Add pet from clipboard**. T3 Code
+downloads the pet or collection, checks each package, installs it, and switches to it. You do not need Node or any other
 tool installed. A notification tells you if it could not be added.
 
 ## Install a pet by hand
@@ -75,4 +74,4 @@ the right to use. T3 Code does not review them.
 - On Windows, the transparent area around a pet can still catch clicks.
 - On Linux with Wayland, staying above other windows and remembering the position depend on your
   window manager.
-- A finished thread counts as Ready only when the server records when you last opened it.
+- A finished thread counts as Ready only after you have opened that thread at least once.

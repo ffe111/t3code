@@ -1027,6 +1027,15 @@ export const make = Effect.gen(function* () {
       clearDevelopmentLoadRetry();
       clearBoundsPersist();
       void runPromise(electronWindow.clearMain(Option.some(window)));
+      // A main window that was destroyed rather than hidden would strand the pet or widget with
+      // no way back, so the app ends as it did before they existed.
+      if (
+        environment.platform !== "darwin" &&
+        (usageWidget.keepsMainAlive() || pet.keepsMainAlive()) &&
+        !runSync(Ref.get(desktopState.quitting))
+      ) {
+        runFork(electronApp.quit);
+      }
     });
 
     return Option.some(window);

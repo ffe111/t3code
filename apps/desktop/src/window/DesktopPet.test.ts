@@ -24,8 +24,8 @@ import * as DesktopPet from "./DesktopPet.ts";
 
 vi.mock("electron", () => ({
   ipcMain: { handle: vi.fn(), removeHandler: vi.fn() },
-  Menu: { buildFromTemplate: vi.fn() },
-  shell: { openPath: vi.fn() },
+  Menu: { buildFromTemplate: vi.fn(() => ({ popup: vi.fn() })) },
+  shell: { openExternal: vi.fn(), openPath: vi.fn() },
   screen: {
     getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }),
     getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }),
@@ -210,6 +210,31 @@ describe("DesktopPet", () => {
               threadId: "ask",
             });
             expect(revealed).toEqual([main.window]);
+
+            yield* action("menu");
+            const template = vi.mocked(Electron.Menu.buildFromTemplate).mock.calls.at(-1)?.[0];
+            const threadsItem = template?.find((item) => item.label === "Threads");
+            const threadsSubmenu = Array.isArray(threadsItem?.submenu) ? threadsItem.submenu : [];
+            expect(threadsSubmenu.map((item) => item.label)).toEqual([
+              "Needs input: Question",
+              "Running: Build",
+            ]);
+            threadsSubmenu[1]?.click?.(
+              {} as Electron.MenuItem,
+              undefined,
+              {} as Electron.KeyboardEvent,
+            );
+            yield* Effect.yieldNow;
+            expect(lastCall(main.native.webContents.send, PET_OPEN_THREAD_CHANNEL)).toMatchObject({
+              environmentId: "desk",
+              threadId: "run",
+            });
+
+            const petItem = template?.find((item) => item.label === "Pet");
+            const petSubmenu = Array.isArray(petItem?.submenu) ? petItem.submenu : [];
+            const browseItem = petSubmenu.find((item) => item.label === "Browse pet gallery");
+            browseItem?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);
+            expect(Electron.shell.openExternal).toHaveBeenCalledWith("https://codex-pets.net");
           }),
         true,
       ),

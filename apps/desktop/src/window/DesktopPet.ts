@@ -1,4 +1,9 @@
-import { PET_SCALES, type PetPreferences, type PetSnapshot } from "@t3tools/contracts";
+import {
+  PET_SCALES,
+  type PetPreferences,
+  type PetSnapshot,
+  type PetThread,
+} from "@t3tools/contracts";
 import { PET_CELL_HEIGHT, PET_CELL_WIDTH, parsePetReference } from "@t3tools/shared/petPackage";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -26,7 +31,7 @@ import {
   type PetInfo,
   type PetLoadFailure,
 } from "../pet/petLibrary.ts";
-import { installPet } from "../pet/petInstaller.ts";
+import { PET_GALLERY_ORIGIN, installCollection, installPet } from "../pet/petInstaller.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import { PET_DOCUMENT } from "./petDocument.ts";
 import { usageWidgetBounds } from "./usageWidgetBounds.ts";
@@ -52,6 +57,14 @@ const SCALE_LABELS: Record<(typeof PET_SCALES)[number], string> = {
   0.75: "Medium",
   1: "Large",
   1.5: "Extra large",
+};
+
+const THREAD_STATE_LABELS: Record<PetThread["state"], string> = {
+  waiting: "Needs input",
+  failed: "Blocked",
+  review: "Ready",
+  running: "Running",
+  idle: "Idle",
 };
 
 const IDLE_SNAPSHOT: PetSnapshot = {
@@ -167,10 +180,11 @@ const make = Effect.gen(function* () {
     const main = yield* windows.main;
     if (Option.isSome(main)) yield* windows.reveal(main.value);
   });
-  const openThread = Effect.gen(function* () {
+  const openThread = Effect.fn("desktop.pet.openThread")(function* (
+    target: PetThread | undefined = snapshot.threads[0],
+  ) {
     const main = yield* windows.main;
     if (Option.isNone(main) || main.value.isDestroyed()) return;
-    const [target] = snapshot.threads;
     if (target) main.value.webContents.send(Channels.PET_OPEN_THREAD_CHANNEL, target);
     yield* windows.reveal(main.value);
   });
@@ -330,22 +344,44 @@ const make = Effect.gen(function* () {
     });
   // A pet is copied from its page as an id or an install command, so the clipboard is the input.
   const addFromClipboard = Effect.gen(function* () {
-    const id = parsePetReference(yield* Effect.promise(() => Electron.clipboard.readText()));
-    if (id === null) {
+    const reference = parsePetReference(yield* Effect.promise(() => Electron.clipboard.readText()));
+    if (reference === null) {
       yield* notify(
         "Copy a pet id or its install command first, then choose Add pet from clipboard.",
       );
       return;
     }
-    const result = yield* installPet({ petsDirectory, id }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(Path.Path, path),
-      Effect.provideService(HttpClient.HttpClient, httpClient),
+    const services = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(HttpClient.HttpClient, httpClient),
+      );
+    if (reference.kind === "collection") {
+      const result = yield* services(installCollection({ petsDirectory, slug: reference.id })).pipe(
+        Effect.map((collection) => ({ ok: true as const, collection })),
+        Effect.catch((message: string) => Effect.succeed({ ok: false as const, message })),
+      );
+      if (!result.ok) {
+        yield* notify(`Could not add ${reference.id}. ${result.message}`);
+        return;
+      }
+      const { installed, failed } = result.collection;
+      yield* refreshPets;
+      const first = installed[0];
+      if (first) yield* choosePet(first.id);
+      yield* notify(
+        `Added ${installed.length} pet${installed.length === 1 ? "" : "s"}` +
+          (failed.length > 0 ? `, ${failed.length} could not be added.` : "."),
+      );
+      return;
+    }
+    const result = yield* services(installPet({ petsDirectory, id: reference.id })).pipe(
       Effect.map((installed) => ({ ok: true as const, installed })),
       Effect.catch((message: string) => Effect.succeed({ ok: false as const, message })),
     );
     if (!result.ok) {
-      yield* notify(`Could not add ${id}. ${result.message}`);
+      yield* notify(`Could not add ${reference.id}. ${result.message}`);
       return;
     }
     yield* refreshPets;
@@ -358,6 +394,14 @@ const make = Effect.gen(function* () {
     const current = selectedPet();
     const menu = Electron.Menu.buildFromTemplate([
       { label: "Open T3 Code", click: () => runFork(revealMain) },
+      {
+        label: "Threads",
+        enabled: snapshot.threads.length > 0,
+        submenu: snapshot.threads.map((thread): Electron.MenuItemConstructorOptions => ({
+          label: `${THREAD_STATE_LABELS[thread.state]}: ${thread.title}`.slice(0, 80),
+          click: () => runFork(openThread(thread)),
+        })),
+      },
       { type: "separator" },
       {
         label: "Pet",
@@ -373,6 +417,10 @@ const make = Effect.gen(function* () {
             enabled: false,
           })),
           { type: "separator" },
+          {
+            label: "Browse pet gallery",
+            click: () => void Electron.shell.openExternal(PET_GALLERY_ORIGIN),
+          },
           { label: "Add pet from clipboard", click: () => runFork(addFromClipboard) },
           ...(current.builtIn
             ? []
@@ -446,7 +494,7 @@ const make = Effect.gen(function* () {
               return;
             }
             case "click":
-              yield* openThread;
+              yield* openThread();
               return;
             case "menu":
               yield* showMenu;

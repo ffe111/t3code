@@ -258,6 +258,7 @@ function layerTest(input: {
   }>;
   readonly primaryPasteEnabled?: boolean;
   readonly usageWidgetEnabled?: boolean;
+  readonly onQuit?: () => void;
   readonly previewPasskeyBridgeEnabled?: boolean;
 }) {
   let desktopSettings = input.desktopSettings ?? DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS;
@@ -363,7 +364,9 @@ function layerTest(input: {
         layerDesktopClientSettings,
         layerDesktopServerExposure,
         DesktopState.layer,
-        layerElectronApp,
+        Layer.mock(ElectronApp.ElectronApp)({
+          quit: Effect.sync(() => input.onQuit?.()),
+        }),
         Layer.succeed(ElectronMenu.ElectronMenu, {
           setApplicationMenu: () => Effect.void,
           showContextMenu: () => Effect.succeedNone,
@@ -1436,6 +1439,58 @@ describe("DesktopWindow", () => {
       }).pipe(
         Effect.provide(
           layerTest({ window: fake.window, createCount, mainWindow, usageWidgetEnabled: true }),
+        ),
+      );
+    }),
+  );
+
+  it.effect("ends the app if the main window is destroyed while the widget floats", () =>
+    Effect.gen(function* () {
+      const fake = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      const quits: number[] = [];
+      yield* Effect.gen(function* () {
+        const windows = yield* DesktopWindow.DesktopWindow;
+        yield* windows.handleBackendReady(new URL("http://127.0.0.1:3773"));
+        fake.windowListeners.get("closed")?.();
+        assert.equal(quits.length, 1);
+      }).pipe(
+        Effect.provide(
+          layerTest({
+            window: fake.window,
+            createCount,
+            mainWindow,
+            platform: "win32",
+            usageWidgetEnabled: true,
+            onQuit: () => quits.push(1),
+          }),
+        ),
+      );
+    }),
+  );
+
+  it.effect("keeps the app running when a plain main window closes on its own", () =>
+    Effect.gen(function* () {
+      const fake = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      const quits: number[] = [];
+      yield* Effect.gen(function* () {
+        const windows = yield* DesktopWindow.DesktopWindow;
+        yield* windows.handleBackendReady(new URL("http://127.0.0.1:3773"));
+        fake.windowListeners.get("closed")?.();
+        // Lifecycle's window-all-closed owns this case; the widget safeguard must not double it.
+        assert.equal(quits.length, 0);
+      }).pipe(
+        Effect.provide(
+          layerTest({
+            window: fake.window,
+            createCount,
+            mainWindow,
+            platform: "win32",
+            onQuit: () => quits.push(1),
+          }),
         ),
       );
     }),

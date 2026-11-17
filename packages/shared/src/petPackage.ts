@@ -106,26 +106,38 @@ export function petLookCell(
 
 const PET_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+export interface PetReference {
+  readonly kind: "pet" | "collection";
+  readonly id: string;
+}
+
 /**
- * Finds a pet id in pasted text: the id itself, an install command ending in the id, or the
- * address of the pet's page. Anything else, including more than one candidate, is not an id.
+ * Finds what to install in pasted text: an id, an install command ("<tool> add <id>" or
+ * "<tool> add-collection <slug>"), or the address of a pet or collection page. Anything else,
+ * including more than one candidate, is not a reference.
  */
-export function parsePetReference(input: string): string | null {
+export function parsePetReference(input: string): PetReference | null {
   const text = input.trim();
   if (text === "" || text.length > 300) return null;
   if (/^https?:\/\//i.test(text)) {
     try {
       const segments = new URL(text).pathname.split("/").filter((segment) => segment !== "");
       const last = segments.at(-1)?.toLowerCase();
-      return last !== undefined && PET_SLUG.test(last) ? last : null;
+      if (last === undefined || !PET_SLUG.test(last)) return null;
+      return {
+        kind: segments.at(-2)?.toLowerCase() === "collections" ? "collection" : "pet",
+        id: last,
+      };
     } catch {
       return null;
     }
   }
   const words = text.split(/\s+/);
-  const candidate = (words.length === 1 ? words[0] : words.at(-1))?.toLowerCase();
-  if (candidate === undefined || !PET_SLUG.test(candidate)) return null;
-  // A command must be "<tool> add <id>"; any other sentence is not an install request.
-  if (words.length === 1) return candidate;
-  return words.length >= 3 && words.at(-2)?.toLowerCase() === "add" ? candidate : null;
+  const id = words.at(-1)?.toLowerCase();
+  if (id === undefined || !PET_SLUG.test(id)) return null;
+  if (words.length === 1) return { kind: "pet", id };
+  const verb = words.at(-2)?.toLowerCase();
+  if (words.length < 3) return null;
+  if (verb === "add") return { kind: "pet", id };
+  return verb === "add-collection" ? { kind: "collection", id } : null;
 }

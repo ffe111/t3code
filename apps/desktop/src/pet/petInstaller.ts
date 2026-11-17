@@ -2,6 +2,7 @@ import { readImageDimensions } from "@t3tools/shared/imageDimensions";
 import {
   PET_MAX_SPRITESHEET_BYTES,
   parsePetManifest,
+  parsePetReference,
   validatePetAtlas,
 } from "@t3tools/shared/petPackage";
 import * as Effect from "effect/Effect";
@@ -12,7 +13,7 @@ import * as HttpClient from "effect/http/HttpClient";
 
 import { readPetArchive } from "./petArchive.ts";
 
-const PET_GALLERY_ORIGIN = "https://codex-pets.net";
+export const PET_GALLERY_ORIGIN = "https://codex-pets.net";
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_LOOKUP_BYTES = 1024 * 1024;
 const MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024;
@@ -23,11 +24,11 @@ export interface InstalledPet {
   readonly directory: string;
 }
 
-const request = (url: string, limit: number) =>
+const request = (url: string, limit: number, notFound = "No pet with that id was found.") =>
   HttpClient.get(url).pipe(
     Effect.timeout(REQUEST_TIMEOUT_MS),
     Effect.flatMap((response) => {
-      if (response.status === 404) return Effect.fail("No pet with that id was found.");
+      if (response.status === 404) return Effect.fail(notFound);
       if (response.status < 200 || response.status >= 300) {
         return Effect.fail(`The pet service answered ${response.status}.`);
       }
@@ -119,4 +120,54 @@ export const installPet = Effect.fn("desktop.pet.install")(function* (input: {
     displayName: manifest.displayName,
     directory,
   } satisfies InstalledPet;
+});
+
+const MAX_COLLECTION_PETS = 50;
+const decodeCollection = Schema.decodeUnknownEffect(
+  Schema.Struct({ pets: Schema.Array(Schema.Unknown) }),
+);
+
+export interface InstalledCollection {
+  readonly installed: ReadonlyArray<InstalledPet>;
+  readonly failed: ReadonlyArray<{ readonly id: string; readonly message: string }>;
+}
+
+/** Installs every pet of a shared collection, one at a time; one bad pet does not stop the rest. */
+export const installCollection = Effect.fn("desktop.pet.installCollection")(function* (input: {
+  readonly petsDirectory: string;
+  readonly slug: string;
+  readonly origin?: string;
+}) {
+  const origin = new URL(input.origin ?? PET_GALLERY_ORIGIN).origin;
+  const lookup = yield* request(
+    `${origin}/api/collections/${encodeURIComponent(input.slug)}`,
+    MAX_LOOKUP_BYTES,
+    "No collection with that name was found.",
+  );
+  const body = yield* parseJson(lookup, "The pet service sent an unreadable answer.");
+  const collection = yield* decodeCollection(body).pipe(
+    Effect.mapError(() => "The pet service did not describe that collection."),
+  );
+  const ids = collection.pets
+    .flatMap((pet) => {
+      if (typeof pet !== "object" || pet === null || !("id" in pet) || typeof pet.id !== "string")
+        return [];
+      const reference = parsePetReference(pet.id);
+      return reference?.kind === "pet" && reference.id === pet.id ? [reference.id] : [];
+    })
+    .slice(0, MAX_COLLECTION_PETS);
+  if (ids.length === 0) return yield* Effect.fail("That collection has no pets.");
+  const installed: InstalledPet[] = [];
+  const failed: Array<{ id: string; message: string }> = [];
+  for (const id of ids) {
+    yield* installPet({
+      petsDirectory: input.petsDirectory,
+      id,
+      ...(input.origin ? { origin: input.origin } : {}),
+    }).pipe(
+      Effect.map((pet) => void installed.push(pet)),
+      Effect.catch((message: string) => Effect.sync(() => void failed.push({ id, message }))),
+    );
+  }
+  return { installed, failed } satisfies InstalledCollection;
 });

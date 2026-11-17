@@ -1,7 +1,13 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import type { PetSnapshot, PetState, PetThread } from "@t3tools/contracts";
 
-import { hasUnseenCompletion, resolveSidebarRowStatus } from "../Sidebar.logic";
+import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
+
+import {
+  hasUnseenCompletion,
+  resolveSidebarRowStatus,
+  resolveThreadLastVisitedAt,
+} from "../Sidebar.logic";
 
 const MAX_THREADS = 8;
 
@@ -32,7 +38,19 @@ export function petStateOfThread(thread: EnvironmentThreadShell): Exclude<PetSta
   }
 }
 
-export function buildPetSnapshot(threads: ReadonlyArray<EnvironmentThreadShell>): PetSnapshot {
+// Match sidebar visit semantics, including server mark-unread rewinds and older-server fallback.
+export function buildPetSnapshot(
+  shells: ReadonlyArray<EnvironmentThreadShell>,
+  localLastVisitedAtById: Readonly<Record<string, string | undefined>>,
+): PetSnapshot {
+  const threads = shells.map((thread) => ({
+    ...thread,
+    lastVisitedAt:
+      resolveThreadLastVisitedAt(
+        thread.lastVisitedAt,
+        localLastVisitedAtById[scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))],
+      ) ?? null,
+  }));
   const counts = { running: 0, waiting: 0, review: 0, failed: 0 };
   const attention: Array<PetThread & { readonly updatedAt: string }> = [];
   for (const thread of threads) {

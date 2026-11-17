@@ -1,3 +1,4 @@
+import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -56,19 +57,37 @@ describe("petStateOfThread", () => {
 
 describe("buildPetSnapshot", () => {
   it("shows the most urgent state and orders threads for the click target", () => {
-    const snapshot = buildPetSnapshot([
-      thread({ id: "running", runtime: { status: "running" }, title: "Building" }),
-      thread({ id: "done", latestRun: completed(FINISHED_AFTER), title: "Done" }),
-      thread({ id: "ask", hasPendingUserInput: true, title: "Question" }),
-      thread({ id: "archived", hasPendingUserInput: true, archivedAt: OPENED }),
-    ]);
+    const snapshot = buildPetSnapshot(
+      [
+        thread({ id: "running", runtime: { status: "running" }, title: "Building" }),
+        thread({ id: "done", latestRun: completed(FINISHED_AFTER), title: "Done" }),
+        thread({ id: "ask", hasPendingUserInput: true, title: "Question" }),
+        thread({ id: "archived", hasPendingUserInput: true, archivedAt: OPENED }),
+      ],
+      {},
+    );
     expect(snapshot.state).toBe("waiting");
     expect(snapshot.counts).toEqual({ running: 1, waiting: 1, review: 1, failed: 0 });
     expect(snapshot.threads.map((entry) => entry.threadId)).toEqual(["ask", "done", "running"]);
   });
 
+  it("merges local visits without marking another environment's thread as read", () => {
+    const local = thread({ lastVisitedAt: undefined, latestRun: completed(FINISHED_AFTER) });
+    const remote = thread({ environmentId: "remote", latestRun: completed(FINISHED_AFTER) });
+    const key = scopedThreadKey(scopeThreadRef(local.environmentId, local.id));
+    const snapshot = buildPetSnapshot([local, remote], { [key]: FINISHED_AFTER });
+    expect(snapshot.counts.review).toBe(1);
+    expect(snapshot.threads.map((entry) => entry.environmentId)).toEqual(["remote"]);
+    expect(
+      buildPetSnapshot([{ ...local, lastVisitedAt: FINISHED_AFTER }], { [key]: OPENED }).state,
+    ).toBe("idle");
+    expect(
+      buildPetSnapshot([{ ...local, lastVisitedAt: OPENED }], { [key]: FINISHED_AFTER }).state,
+    ).toBe("review");
+  });
+
   it("rests when nothing needs attention and caps the thread list", () => {
-    expect(buildPetSnapshot([thread({})])).toEqual({
+    expect(buildPetSnapshot([thread({})], {})).toEqual({
       state: "idle",
       counts: { running: 0, waiting: 0, review: 0, failed: 0 },
       threads: [],
@@ -76,7 +95,7 @@ describe("buildPetSnapshot", () => {
     const many = Array.from({ length: 20 }, (_, index) =>
       thread({ id: `t${index}`, runtime: { status: "running" } }),
     );
-    expect(buildPetSnapshot(many).threads).toHaveLength(8);
-    expect(buildPetSnapshot(many).counts.running).toBe(20);
+    expect(buildPetSnapshot(many, {}).threads).toHaveLength(8);
+    expect(buildPetSnapshot(many, {}).counts.running).toBe(20);
   });
 });

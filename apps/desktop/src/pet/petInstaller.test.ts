@@ -10,7 +10,7 @@ import * as Path from "effect/Path";
 import type * as HttpClient from "effect/http/HttpClient";
 
 import { DEFAULT_PET_SPRITE_BASE64 } from "./defaultPetSprite.ts";
-import { installPet } from "./petInstaller.ts";
+import { installCollection, installPet } from "./petInstaller.ts";
 import { makeZip } from "./testZip.ts";
 
 const sprite = Uint8Array.from(Buffer.from(DEFAULT_PET_SPRITE_BASE64, "base64"));
@@ -59,6 +59,31 @@ const withService = <A, E>(
     const fileSystem = yield* FileSystem.FileSystem;
     const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-pet-install-" });
     const server = NodeHttp.createServer((request, response) => {
+      if (request.url === "/api/collections/mixed") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            pets: [
+              { id: "ok" },
+              { id: "mismatch" },
+              { id: "missing" },
+              { id: "Bad Id!" },
+              { id: "tool add ok" },
+              { id: "https://codex-pets.net/pets/ok" },
+              { id: "OK" },
+              null,
+              42,
+            ],
+          }),
+        );
+        return;
+      }
+      if (request.url === "/api/collections/empty") {
+        response
+          .writeHead(200, { "content-type": "application/json" })
+          .end(JSON.stringify({ pets: [] }));
+        return;
+      }
       const match = /^\/api\/pets\/([^/]+)\/(share-data|download)$/.exec(request.url ?? "");
       const entry = match?.[1] === undefined ? undefined : packages[match[1]];
       if (!match || !entry) {
@@ -145,6 +170,42 @@ describe("installPet", () => {
           origin: "http://127.0.0.1:1",
         }).pipe(Effect.flip);
         assert.equal(error, "Could not reach the pet service.");
+      }),
+    ),
+  );
+
+  it.effect("installs the good pets of a collection and reports the rest", () =>
+    withService(({ origin, directory }) =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const result = yield* installCollection({
+          petsDirectory: directory,
+          slug: "mixed",
+          origin,
+        });
+        assert.deepEqual(
+          result.installed.map((pet) => pet.id),
+          ["ok"],
+        );
+        assert.deepEqual(
+          result.failed.map((failure) => failure.id),
+          ["mismatch", "missing"],
+        );
+        assert.deepEqual(yield* fileSystem.readDirectory(directory), ["ok"]);
+      }),
+    ),
+  );
+
+  it.effect.each([
+    { slug: "empty", message: "no pets" },
+    { slug: "nothing-here", message: "No collection" },
+  ])("refuses the collection $slug", ({ slug, message }) =>
+    withService(({ origin, directory }) =>
+      Effect.gen(function* () {
+        const error = yield* installCollection({ petsDirectory: directory, slug, origin }).pipe(
+          Effect.flip,
+        );
+        assert.include(String(error), message);
       }),
     ),
   );

@@ -83,14 +83,16 @@ describe("animations", () => {
 
 describe("parsePetReference", () => {
   it.each([
-    ["wilson-original-v2", "wilson-original-v2"],
-    ["  Wilson-Original-V2\n", "wilson-original-v2"],
-    ["npx some-tool add wilson-original-v2", "wilson-original-v2"],
-    ["pnpm dlx some-tool add tiny-dino", "tiny-dino"],
-    ["https://example.com/pets/tiny-dino", "tiny-dino"],
-    ["https://example.com/pets/tiny-dino/?utm=1", "tiny-dino"],
-  ])("finds the id in %j", (input, expected) => {
-    expect(parsePetReference(input)).toBe(expected);
+    ["wilson-original-v2", { kind: "pet", id: "wilson-original-v2" }],
+    ["  Wilson-Original-V2  ", { kind: "pet", id: "wilson-original-v2" }],
+    ["npx some-tool add wilson-original-v2", { kind: "pet", id: "wilson-original-v2" }],
+    ["pnpm dlx some-tool add tiny-dino", { kind: "pet", id: "tiny-dino" }],
+    ["npx some-tool add-collection cats", { kind: "collection", id: "cats" }],
+    ["https://example.com/pets/tiny-dino", { kind: "pet", id: "tiny-dino" }],
+    ["https://example.com/pets/tiny-dino/?utm=1", { kind: "pet", id: "tiny-dino" }],
+    ["https://example.com/collections/cats", { kind: "collection", id: "cats" }],
+  ])("finds the reference in %j", (input, expected) => {
+    expect(parsePetReference(input)).toEqual(expected);
   });
 
   it.each([
@@ -99,6 +101,7 @@ describe("parsePetReference", () => {
     "two words",
     "npx tool remove tiny-dino",
     "npx tool add",
+    "npx tool add-collection",
     "not an id!",
     "https://example.com/",
     "https://",
