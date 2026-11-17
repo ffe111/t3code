@@ -6,7 +6,7 @@ available in the desktop app and is off by default.
 
 ## Start it
 
-Choose **View > Show Pet**. Drag it to move it. Right-click it for its menu: pick a pet, change its
+Choose **View > Show Pet**. Drag it to move it. Right-click it for its menu: pick a pet, add or remove one, change its
 size, refresh the pet list, open the pets folder, or hide it. T3 Code remembers the pet, size, and
 position.
 
@@ -27,7 +27,8 @@ to report, the most urgent state wins.
 | Working | A thread is running.                                                                     |
 | Resting | Nothing needs attention.                                                                 |
 
-Hover the pet to see the counts. A resting pet moves once, then holds still for several seconds. With
+Hover the pet to see the counts. A resting pet turns to look at your pointer when the atlas has look
+poses (version 2 pets), runs left or right while you drag it, and waves when you click it. A resting pet moves once, then holds still for several seconds. With
 your system's reduced motion setting on, the pet shows a still frame.
 
 ## Add a pet from the web
@@ -63,8 +64,8 @@ pets/
 The spritesheet is a `.webp` or `.png`, up to 8 MB, 1536 pixels wide and 1872 or 2288 pixels tall. It
 is a grid of 8 columns and 9 or more rows of 192 by 208 pixel cells with a transparent background.
 Each row is one animation, from the top: resting, running right, running left, waving, jumping,
-blocked, asking, working, ready. Only the first frames of each row are used. Rows 10 and 11, if
-present, are ignored.
+blocked, asking, working, ready. Only the first frames of each row are used. Version 2 sheets add two rows (10 and 11) of 16 poses looking clockwise from straight up, which the
+pet uses to follow your pointer. Sheets without them still work.
 
 A pet that cannot be read is listed as skipped in the pet menu with the reason. Anyone can share a pet, and many are fan art of existing characters. Only install pets you have
 the right to use. T3 Code does not review them.

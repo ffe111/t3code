@@ -6,6 +6,8 @@ import {
   PET_ANIMATION_ROWS,
   PET_CELL_HEIGHT,
   PET_CELL_WIDTH,
+  PET_V2_ATLAS_HEIGHT,
+  petLookCell,
   type PetAnimation,
 } from "@t3tools/shared/petPackage";
 import { PET_ACTION_CHANNEL, PET_SPRITE_CHANNEL, PET_STATE_CHANNEL } from "./ipc/channels.ts";
@@ -13,6 +15,8 @@ import { PET_ACTION_CHANNEL, PET_SPRITE_CHANNEL, PET_STATE_CHANNEL } from "./ipc
 // A resting pet pauses between breaths so an idle window never repaints continuously.
 const IDLE_PAUSE_MS = 6_000;
 const DRAG_THRESHOLD_PX = 4;
+// Share of the pet's width around its centre where the pet does not turn to look.
+const LOOK_DEADZONE = 0.12;
 
 window.addEventListener(
   "DOMContentLoaded",
@@ -23,6 +27,11 @@ window.addEventListener(
     let scale = 1;
     let loaded = false;
     let oneShot: PetAnimation | null = null;
+    // Running while the pet is dragged, in the direction it is being pulled.
+    let dragAnimation: PetAnimation | null = null;
+    // Only a v2 atlas has look poses.
+    let canLook = false;
+    let looking = false;
     let index = 0;
     // Set once an idle loop has played, so the pause lands on its resting first frame.
     let rested = false;
@@ -30,13 +39,14 @@ window.addEventListener(
     const act = (action: string | { readonly dx: number; readonly dy: number }) =>
       void ipcRenderer.invoke(PET_ACTION_CHANNEL, action);
 
-    const showFrame = (animation: PetAnimation, column: number) => {
-      const row = PET_ANIMATION_ROWS.indexOf(animation);
+    const showCell = (row: number, column: number) => {
       sprite.style.backgroundPosition = `${-column * PET_CELL_WIDTH * scale}px ${-row * PET_CELL_HEIGHT * scale}px`;
     };
+    const showFrame = (animation: PetAnimation, column: number) =>
+      showCell(PET_ANIMATION_ROWS.indexOf(animation), column);
     const tick = () => {
       if (!loaded) return;
-      const animation = oneShot ?? state;
+      const animation = oneShot ?? dragAnimation ?? state;
       const timings = PET_ANIMATIONS[animation];
       showFrame(animation, index);
       // Reduced motion keeps a still frame of the current state.
@@ -53,6 +63,7 @@ window.addEventListener(
     };
     const restart = () => {
       clearTimeout(timer);
+      looking = false;
       index = 0;
       rested = false;
       tick();
@@ -65,6 +76,7 @@ window.addEventListener(
         scale = message.scale;
         sprite.style.backgroundImage = `url("${message.sprite}")`;
         sprite.style.backgroundSize = `${image.naturalWidth * scale}px ${image.naturalHeight * scale}px`;
+        canLook = image.naturalHeight >= PET_V2_ATLAS_HEIGHT;
         loaded = true;
         restart();
       };
@@ -100,10 +112,34 @@ window.addEventListener(
       act("drag-start");
     });
     sprite.addEventListener("pointermove", (event) => {
-      if (start === null) return;
-      latest = { dx: event.screenX - start.x, dy: event.screenY - start.y };
+      if (start === null) {
+        // A resting pet turns to follow the pointer; busy states keep their own animation.
+        if (!canLook || !loaded || state !== "idle" || oneShot !== null) return;
+        const cell = petLookCell(
+          event.clientX - window.innerWidth / 2,
+          event.clientY - window.innerHeight / 2,
+          window.innerWidth * LOOK_DEADZONE,
+        );
+        if (cell === null) {
+          if (looking) restart();
+          return;
+        }
+        clearTimeout(timer);
+        looking = true;
+        showCell(cell.row, cell.column);
+        return;
+      }
+      const next = { dx: event.screenX - start.x, dy: event.screenY - start.y };
+      const heading = next.dx - latest.dx;
+      latest = next;
       if (!moved && Math.hypot(latest.dx, latest.dy) < DRAG_THRESHOLD_PX) return;
       moved = true;
+      const direction =
+        heading > 0 ? "running-right" : heading < 0 ? "running-left" : dragAnimation;
+      if (direction !== dragAnimation) {
+        dragAnimation = direction;
+        restart();
+      }
       if (frame !== 0) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
@@ -113,10 +149,22 @@ window.addEventListener(
     sprite.addEventListener("pointerup", (event) => {
       if (start === null || event.button !== 0) return;
       start = null;
-      if (moved) return;
+      if (moved) {
+        dragAnimation = null;
+        restart();
+        return;
+      }
       oneShot = "waving";
       restart();
       act("click");
+    });
+    sprite.addEventListener("pointercancel", () => {
+      start = null;
+      dragAnimation = null;
+      restart();
+    });
+    sprite.addEventListener("pointerleave", () => {
+      if (looking) restart();
     });
     sprite.addEventListener("contextmenu", (event) => {
       event.preventDefault();

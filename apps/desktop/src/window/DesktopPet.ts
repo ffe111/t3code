@@ -296,6 +296,32 @@ const make = Effect.gen(function* () {
     yield* Effect.promise(() => Electron.shell.openPath(petsDirectory));
   });
 
+  const removePet = Effect.fn("desktop.pet.remove")(function* (target: PetInfo) {
+    // Only a folder directly inside the pets folder can be removed, never anything else on disk.
+    if (
+      target.builtIn ||
+      target.directory === null ||
+      path.dirname(target.directory) !== petsDirectory
+    ) {
+      return;
+    }
+    const choice = yield* Effect.promise(() =>
+      Electron.dialog.showMessageBox({
+        type: "question",
+        buttons: ["Remove", "Cancel"],
+        defaultId: 1,
+        cancelId: 1,
+        message: `Remove ${target.displayName}?`,
+        detail: "Its files are deleted from the pets folder.",
+      }),
+    );
+    if (choice.response !== 0) return;
+    yield* fileSystem.remove(target.directory, { recursive: true }).pipe(Effect.ignore);
+    yield* refreshPets;
+    if (selectedPet().id === target.id || preferences?.petId === target.id) {
+      yield* choosePet(BUILT_IN_PET.id);
+    }
+  });
   const notify = (body: string) =>
     Effect.sync(() => {
       if (Electron.Notification.isSupported()) {
@@ -348,6 +374,14 @@ const make = Effect.gen(function* () {
           })),
           { type: "separator" },
           { label: "Add pet from clipboard", click: () => runFork(addFromClipboard) },
+          ...(current.builtIn
+            ? []
+            : [
+                {
+                  label: `Remove ${current.displayName}...`,
+                  click: () => runFork(removePet(current)),
+                } satisfies Electron.MenuItemConstructorOptions,
+              ]),
           { label: "Refresh pets", click: () => runFork(refreshPets) },
           { label: "Open pets folder", click: () => runFork(openPetsFolder) },
         ],

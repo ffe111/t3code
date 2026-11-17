@@ -5,6 +5,7 @@ import {
   PET_ANIMATION_ROWS,
   parsePetManifest,
   parsePetReference,
+  petLookCell,
   validatePetAtlas,
 } from "./petPackage.ts";
 
@@ -105,5 +106,28 @@ describe("parsePetReference", () => {
     "a".repeat(400),
   ])("rejects %j", (input) => {
     expect(parsePetReference(input)).toBeNull();
+  });
+});
+
+describe("petLookCell", () => {
+  it.each([
+    [0, -10, { row: 9, column: 0 }],
+    [10, -10, { row: 9, column: 2 }],
+    [10, 0, { row: 9, column: 4 }],
+    [10, 10, { row: 9, column: 6 }],
+    [0, 10, { row: 10, column: 0 }],
+    [-10, 10, { row: 10, column: 2 }],
+    [-10, 0, { row: 10, column: 4 }],
+    [-10, -10, { row: 10, column: 6 }],
+    // Just left of straight up still rounds up to the first pose, not past the last.
+    [-1, -10, { row: 9, column: 0 }],
+    [3, -10, { row: 9, column: 1 }],
+  ])("looks toward (%f, %f)", (dx, dy, expected) => {
+    expect(petLookCell(dx, dy, 2)).toEqual(expected);
+  });
+
+  it("keeps the usual pose near the centre", () => {
+    expect(petLookCell(1, 1, 5)).toBeNull();
+    expect(petLookCell(0, 0, 0.5)).toBeNull();
   });
 });

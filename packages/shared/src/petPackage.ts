@@ -85,6 +85,25 @@ export function validatePetAtlas(dimensions: {
   return null;
 }
 
+const PET_LOOK_FIRST_ROW = 9;
+const PET_LOOK_DIRECTIONS = 16;
+export const PET_V2_ATLAS_HEIGHT = 2288;
+
+/**
+ * A v2 atlas ends with 16 poses of the pet looking clockwise from straight up, 22.5 degrees
+ * apart, eight to a row. Near the pet's centre there is no direction, so it keeps its usual pose.
+ */
+export function petLookCell(
+  dx: number,
+  dy: number,
+  deadzone: number,
+): { readonly row: number; readonly column: number } | null {
+  if (Math.hypot(dx, dy) < deadzone) return null;
+  const degrees = ((((Math.atan2(dx, -dy) * 180) / Math.PI) % 360) + 360) % 360;
+  const direction = Math.round(degrees / (360 / PET_LOOK_DIRECTIONS)) % PET_LOOK_DIRECTIONS;
+  return { row: PET_LOOK_FIRST_ROW + Math.floor(direction / 8), column: direction % 8 };
+}
+
 const PET_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
