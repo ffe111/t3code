@@ -285,6 +285,10 @@ export const make = Effect.gen(function* () {
             click: () =>
               runMenuEffect("show-usage-widget", dispatchMenuAction("show-usage-widget")),
           },
+          {
+            label: "Show Pet",
+            click: () => runMenuEffect("show-pet", dispatchMenuAction("show-pet")),
+          },
           { type: "separator" },
           /* Native reload/DevTools/zoom roles target focused guests; these commands must target the app. */
           { label: "Reload", accelerator: "CmdOrCtrl+R", click: mainContentsClick("reload") },

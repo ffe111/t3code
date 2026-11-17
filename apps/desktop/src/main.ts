@@ -45,6 +45,7 @@ import * as DesktopClerk from "./app/DesktopClerk.ts";
 import * as DesktopCliCommand from "./app/DesktopCliCommand.ts";
 import * as DesktopApplicationMenu from "./window/DesktopApplicationMenu.ts";
 import * as DesktopUsageWidget from "./window/DesktopUsageWidget.ts";
+import * as DesktopPet from "./window/DesktopPet.ts";
 import * as DesktopAssets from "./app/DesktopAssets.ts";
 import * as DesktopPrimaryPaste from "./app/DesktopPrimaryPaste.ts";
 import * as DesktopBackendConfiguration from "./backend/DesktopBackendConfiguration.ts";
@@ -190,6 +191,7 @@ const layerDesktopPreview = PreviewManager.layer.pipe(
 
 const layerDesktopWindow = DesktopWindow.layer.pipe(
   Layer.provideMerge(DesktopUsageWidget.layer.pipe(Layer.provide(layerDesktopFoundation))),
+  Layer.provideMerge(DesktopPet.layer.pipe(Layer.provide(layerDesktopFoundation))),
   Layer.provideMerge(layerDesktopServerExposure),
   Layer.provideMerge(layerDesktopPreview),
 );

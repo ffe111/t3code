@@ -93,6 +93,7 @@
         "src/preview-pip-preload.ts!",
         "src/mac-permission-preload.ts!",
         "src/usage-widget-preload.ts!",
+        "src/pet-preload.ts!",
         "src/preview/Annotation.css!",
       ],
       // The injected runtime resolves Playwright by string; release tooling runs

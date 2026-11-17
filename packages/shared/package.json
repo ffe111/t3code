@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./petPackage": {
+      "types": "./src/petPackage.ts",
+      "import": "./src/petPackage.ts"
+    },
     "./png": {
       "types": "./src/png.ts",
       "import": "./src/png.ts"

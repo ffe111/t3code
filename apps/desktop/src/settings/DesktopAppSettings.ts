@@ -1,6 +1,7 @@
 import {
   DesktopServerExposureModeSchema,
   DesktopUpdateChannelSchema,
+  PetPreferences,
   UsageWidgetPreferences,
   type DesktopServerExposureMode,
   type DesktopUpdateChannel,
@@ -34,6 +35,7 @@ export interface DesktopSettings {
   readonly mainWindowBounds: DesktopWindowBounds | null;
   readonly mainWindowMaximized: boolean;
   readonly usageWidget: UsageWidgetPreferences;
+  readonly pet: PetPreferences;
   readonly serverExposureMode: DesktopServerExposureMode;
   readonly tailscaleServeEnabled: boolean;
   readonly tailscaleServePort: number;
@@ -76,6 +78,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   mainWindowBounds: null,
   mainWindowMaximized: false,
   usageWidget: { visible: false, layout: "vertical", position: null },
+  pet: { visible: false, position: null, scale: 0.75, petId: null },
   serverExposureMode: "local-only",
   tailscaleServeEnabled: false,
   tailscaleServePort: DEFAULT_TAILSCALE_SERVE_PORT,
@@ -104,6 +107,7 @@ const DesktopSettingsDocument = Schema.Struct({
   mainWindowBounds: optionalReadableKey(Schema.NullOr(DesktopWindowBoundsDocument)),
   mainWindowMaximized: optionalReadableKey(Schema.Boolean),
   usageWidget: optionalReadableKey(UsageWidgetPreferences),
+  pet: optionalReadableKey(PetPreferences),
   serverExposureMode: optionalReadableKey(DesktopServerExposureModeSchema),
   tailscaleServeEnabled: optionalReadableKey(Schema.Boolean),
   tailscaleServePort: optionalReadableKey(Schema.Number),
@@ -162,6 +166,9 @@ export class DesktopAppSettings extends Context.Service<
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setUsageWidget: (
       preferences: UsageWidgetPreferences,
+    ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
+    readonly setPet: (
+      preferences: PetPreferences,
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setMainWindowBounds: (
       bounds: DesktopWindowBounds,
@@ -237,6 +244,7 @@ function normalizeDesktopSettingsDocument(
     mainWindowBounds,
     mainWindowMaximized: mainWindowBounds !== null && parsed.mainWindowMaximized === true,
     usageWidget: parsed.usageWidget ?? defaultSettings.usageWidget,
+    pet: parsed.pet ?? defaultSettings.pet,
     serverExposureMode:
       parsed.serverExposureMode === "network-accessible" ? "network-accessible" : "local-only",
     tailscaleServeEnabled: parsed.tailscaleServeEnabled === true,
@@ -269,6 +277,9 @@ function toDesktopSettingsDocument(
   }
   if (!Schema.toEquivalence(UsageWidgetPreferences)(settings.usageWidget, defaults.usageWidget)) {
     document.usageWidget = settings.usageWidget;
+  }
+  if (!Schema.toEquivalence(PetPreferences)(settings.pet, defaults.pet)) {
+    document.pet = settings.pet;
   }
   if (settings.mainWindowMaximized) {
     document.mainWindowMaximized = true;
@@ -560,6 +571,9 @@ export const make = Effect.gen(function* () {
       );
       return yield* SynchronizedRef.setAndGet(settingsRef, settings);
     }).pipe(Effect.withSpan("desktop.settings.load")),
+    setPet: Effect.fn("desktop.settings.setPet")(function (pet) {
+      return persist((settings) => ({ ...settings, pet }));
+    }),
     setUsageWidget: Effect.fn("desktop.settings.setUsageWidget")(function (usageWidget) {
       return persist((settings) => ({ ...settings, usageWidget }));
     }),
@@ -644,6 +658,9 @@ export const layerTest = (initialSettings: DesktopSettings = DEFAULT_DESKTOP_SET
       return DesktopAppSettings.of({
         get: SynchronizedRef.get(settingsRef),
         load: SynchronizedRef.get(settingsRef),
+        setPet: Effect.fn("DesktopAppSettings.setPet")((pet) =>
+          update((settings) => ({ ...settings, pet })),
+        ),
         setUsageWidget: Effect.fn("DesktopAppSettings.setUsageWidget")((usageWidget) =>
           update((settings) => ({ ...settings, usageWidget })),
         ),

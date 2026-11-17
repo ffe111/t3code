@@ -16,6 +16,13 @@ export const USAGE_WIDGET_PUBLISH_CHANNEL = "desktop:usage-widget:publish";
 export const USAGE_WIDGET_ACTION_CHANNEL = "desktop:usage-widget:action";
 export const USAGE_WIDGET_STATE_CHANNEL = "desktop:usage-widget:state";
 
+export const PET_SHOW_CHANNEL = "desktop:pet:show";
+export const PET_PUBLISH_CHANNEL = "desktop:pet:publish";
+export const PET_ACTION_CHANNEL = "desktop:pet:action";
+export const PET_STATE_CHANNEL = "desktop:pet:state";
+export const PET_SPRITE_CHANNEL = "desktop:pet:sprite";
+export const PET_OPEN_THREAD_CHANNEL = "desktop:pet:open-thread";
+
 export const REVEAL_WINDOW_CHANNEL = "desktop:reveal-window";
 export const SNAP_SHOT_EVENT_CHANNEL = "desktop:snap-shot-event";
 export const WEB_LINK_OPEN_CHANNEL = "desktop:web-link-open";

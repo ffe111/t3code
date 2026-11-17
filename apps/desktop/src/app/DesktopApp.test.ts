@@ -49,6 +49,7 @@ import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts"
 import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import * as DesktopApplicationMenu from "../window/DesktopApplicationMenu.ts";
 import * as DesktopUsageWidget from "../window/DesktopUsageWidget.ts";
+import * as DesktopPet from "../window/DesktopPet.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 import * as DesktopWslBackend from "../wsl/DesktopWslBackend.ts";
 
@@ -282,5 +283,9 @@ it.effect.each([false, true])(
       assert.equal(Exit.isFailure(result), stopDefect);
       assert.isTrue(yield* shutdown.isComplete);
       assert.isTrue(yield* Deferred.isDone(registrationStopped));
-    }).pipe(Effect.provide(Layer.mergeAll(DesktopShutdown.layer, DesktopUsageWidget.layerTest))),
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(DesktopShutdown.layer, DesktopUsageWidget.layerTest, DesktopPet.layerTest),
+      ),
+    ),
 );

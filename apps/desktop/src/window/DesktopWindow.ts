@@ -42,6 +42,7 @@ import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts";
 import { makeQuitShortcutHandler } from "./QuitHold.ts";
 import * as DesktopUsageWidget from "./DesktopUsageWidget.ts";
+import * as DesktopPet from "./DesktopPet.ts";
 import { copyContextMenuImage } from "./ContextMenuImage.ts";
 
 const TITLEBAR_HEIGHT = 40;
@@ -383,6 +384,7 @@ export const make = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const desktopState = yield* DesktopState.DesktopState;
   const usageWidget = yield* DesktopUsageWidget.DesktopUsageWidget;
+  const pet = yield* DesktopPet.DesktopPet;
   const assets = yield* DesktopAssets.DesktopAssets;
   const electronMenu = yield* ElectronMenu.ElectronMenu;
   const electronShell = yield* ElectronShell.ElectronShell;
@@ -831,7 +833,10 @@ export const make = Effect.gen(function* () {
     window.on("unmaximize", scheduleBoundsPersist);
     window.on("close", (event) => {
       runFork(flushBoundsPersist);
-      if (usageWidget.keepsMainAlive() && !runSync(Ref.get(desktopState.quitting))) {
+      if (
+        (usageWidget.keepsMainAlive() || pet.keepsMainAlive()) &&
+        !runSync(Ref.get(desktopState.quitting))
+      ) {
         event.preventDefault();
         window.hide();
       }

@@ -50,6 +50,7 @@ import { SNAP_SHOT_EVENT_CHANNEL } from "../ipc/channels.ts";
 import * as DesktopServerExposure from "../backend/DesktopServerExposure.ts";
 import * as DesktopWindow from "./DesktopWindow.ts";
 import * as DesktopUsageWidget from "./DesktopUsageWidget.ts";
+import * as DesktopPet from "./DesktopPet.ts";
 import {
   PASSKEY_BRIDGE_ARGUMENT,
   PRIMARY_PASTE_DISABLED_ARGUMENT,
@@ -263,6 +264,11 @@ function layerTest(input: {
   const layerDesktopAppSettings = Layer.succeed(DesktopAppSettings.DesktopAppSettings, {
     get: Effect.sync(() => desktopSettings),
     load: Effect.sync(() => desktopSettings),
+    setPet: (pet) =>
+      Effect.sync(() => {
+        desktopSettings = { ...desktopSettings, pet };
+        return { settings: desktopSettings, changed: true };
+      }),
     setUsageWidget: (usageWidget) =>
       Effect.sync(() => {
         desktopSettings = { ...desktopSettings, usageWidget };
@@ -333,6 +339,7 @@ function layerTest(input: {
   } satisfies ElectronWindow.ElectronWindow["Service"]);
 
   return DesktopWindow.layer.pipe(
+    Layer.provide(DesktopPet.layerTest),
     Layer.provide(
       Layer.succeed(DesktopUsageWidget.DesktopUsageWidget, {
         keepsMainAlive: () => input.usageWidgetEnabled ?? false,
@@ -465,6 +472,7 @@ const makeSplashScenario = (createOutcomes: readonly (Electron.BrowserWindow | n
     } satisfies ElectronWindow.ElectronWindow["Service"];
 
     const layer = DesktopWindow.layer.pipe(
+      Layer.provide(DesktopPet.layerTest),
       Layer.provide(DesktopUsageWidget.layerTest),
       Layer.provide(
         Layer.mergeAll(

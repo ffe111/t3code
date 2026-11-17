@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import { receiveProviderAuthCallback, cancelProviderAuthCallback } from "./methods/providerAuth.ts";
 import * as DesktopIpc from "./DesktopIpc.ts";
 import { installNotificationBadge } from "./methods/notificationBadge.ts";
+import { installPetActions, publishPet, showPet } from "./methods/pet.ts";
 import {
   installUsageWidgetActions,
   showUsageWidget,
@@ -96,6 +97,9 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   const ipc = yield* DesktopIpc.DesktopIpc;
   yield* installNotificationBadge();
   yield* installUsageWidgetActions();
+  yield* installPetActions();
+  yield* ipc.handle(showPet);
+  yield* ipc.handle(publishPet);
   yield* ipc.handle(showUsageWidget);
   yield* ipc.handle(publishUsageWidget);
   yield* PreviewIpc.installPreviewEventForwarding();

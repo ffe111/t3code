@@ -1057,6 +1057,11 @@ export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
 export interface DesktopBridge {
+  pet?: {
+    show: () => Promise<void>;
+    publish: (snapshot: import("./pet.ts").PetSnapshot) => Promise<void>;
+    onOpenThread: (listener: (thread: import("./pet.ts").PetThread) => void) => () => void;
+  };
   usageWidget?: {
     show: () => Promise<void>;
     publish: (snapshot: import("./usageWidget.ts").UsageWidgetSnapshot) => Promise<void>;

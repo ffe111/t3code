@@ -104,6 +104,15 @@ function unwrapEnsureSshEnvironmentResult(result: unknown) {
 }
 
 contextBridge.exposeInMainWorld("desktopBridge", {
+  pet: {
+    show: () => ipcRenderer.invoke(IpcChannels.PET_SHOW_CHANNEL),
+    publish: (snapshot) => ipcRenderer.invoke(IpcChannels.PET_PUBLISH_CHANNEL, snapshot),
+    onOpenThread: (listener) => {
+      const handler = (_event: unknown, thread: Parameters<typeof listener>[0]) => listener(thread);
+      ipcRenderer.on(IpcChannels.PET_OPEN_THREAD_CHANNEL, handler);
+      return () => ipcRenderer.removeListener(IpcChannels.PET_OPEN_THREAD_CHANNEL, handler);
+    },
+  },
   usageWidget: {
     show: () => ipcRenderer.invoke(IpcChannels.USAGE_WIDGET_SHOW_CHANNEL),
     publish: (snapshot) => ipcRenderer.invoke(IpcChannels.USAGE_WIDGET_PUBLISH_CHANNEL, snapshot),

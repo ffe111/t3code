@@ -167,6 +167,18 @@ export default defineConfig({
       outExtensions: () => ({ js: ".cjs" }),
       entry: ["src/usage-widget-preload.ts"],
     },
+    {
+      format: "cjs",
+      outDir: "dist-electron",
+      dts: false,
+      sourcemap: true,
+      outExtensions: () => ({ js: ".cjs" }),
+      entry: ["src/pet-preload.ts"],
+      deps: {
+        // Sandboxed preloads cannot resolve workspace packages at runtime.
+        alwaysBundle: (id) => id === "@t3tools/shared/petPackage",
+      },
+    },
   ],
   test: {
     // The Windows lane runs workspace suites concurrently; filesystem-heavy
